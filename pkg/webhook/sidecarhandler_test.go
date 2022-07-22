@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/expediagroup/kubernetes-sidecar-injector/pkg/admission"
+	"github.com/knd2122/kube-sidecar-injector/pkg/admission"
 	"github.com/stretchr/testify/assert"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

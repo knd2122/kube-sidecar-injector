@@ -1,5 +1,5 @@
 image:
-  repository: expediagroup/kubernetes-sidecar-injector
+  repository: khoaitaybeo86/kube-sidecar-injector
   tag: latest
   pullPolicy: IfNotPresent
   pullSecrets: []

@@ -1,10 +1,11 @@
 package cmd
 
 import (
-	"github.com/expediagroup/kubernetes-sidecar-injector/pkg/httpd"
+	"os"
+
+	"github.com/knd2122/kube-sidecar-injector/pkg/httpd"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"os"
 )
 
 var (
@@ -12,7 +13,7 @@ var (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "kubernetes-sidecar-injector",
+	Use:   "kube-sidecar-injector",
 	Short: "Responsible for injecting sidecars into pod containers",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		log.Infof("SimpleServer starting to listen in port %v", httpdConf.Port)

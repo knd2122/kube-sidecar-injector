@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/expediagroup/kubernetes-sidecar-injector/pkg/admission"
 	"github.com/ghodss/yaml"
+	"github.com/knd2122/kube-sidecar-injector/pkg/admission"
 	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
 	corev1 "k8s.io/api/core/v1"

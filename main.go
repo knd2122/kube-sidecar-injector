@@ -1,6 +1,6 @@
 package main
 
-import "github.com/expediagroup/kubernetes-sidecar-injector/cmd"
+import "github.com/knd2122/kube-sidecar-injector/cmd"
 
 func main() {
 	cmd.Execute()

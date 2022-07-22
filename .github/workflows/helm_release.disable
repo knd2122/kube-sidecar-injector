@@ -73,7 +73,7 @@ jobs:
         uses: tj-actions/changed-files@v23
         with:
           files: |
-            charts/kubernetes-sidecar-injector
+            charts/kube-sidecar-injector
 
       - name: Automated Helm Version Bump
         if: steps.helm-specific-changes.outputs.any_modified == 'true'
@@ -94,7 +94,7 @@ jobs:
 
       - name: update Chart.yaml
         if: steps.helm-specific-changes.outputs.any_modified == 'true'
-        working-directory: charts/kubernetes-sidecar-injector
+        working-directory: charts/kube-sidecar-injector
         run: |
           cat <<EOF > Chart.yaml
           name: ${GITHUB_REPOSITORY#*/}
