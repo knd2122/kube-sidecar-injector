@@ -2,6 +2,8 @@ package webhook
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -109,35 +111,75 @@ func createObjectPatches(newMap map[string]string, existingMap map[string]string
 	return patches
 }
 
+// getCommonConfigmapNamespace obtain namespace which stored injector configmap
+func getCommonConfigmapNamespace() (string, error) {
+	// configmap namespace is the namespace of this tool
+	// 2 location, either /var/run/secrets/kubernetes.io/serviceaccount/namespace or CONF_NAMESPACE env var
+	//var config_namespace string
+	if config_namespace := os.Getenv("CONF_NAMESPACE"); config_namespace != "" {
+		return config_namespace, nil
+	} else {
+		namespace_file := "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+		ns, err := os.ReadFile(namespace_file)
+		if err != nil {
+			return "", fmt.Errorf("failure while looking up configmap namespace: %v", err.Error())
+		}
+		config_namespace = strings.TrimSpace(string(ns))
+		if config_namespace == "" {
+			return "", fmt.Errorf("could not determine configmap namespace. Set CONF_NAMESPACE global var")
+		}
+		return config_namespace, nil
+	}
+}
+
 // PatchPodCreate Handle Pod Create Patch
 func (patcher *SidecarInjectorPatcher) PatchPodCreate(ctx context.Context, namespace string, pod corev1.Pod) ([]admission.PatchOperation, error) {
 	podName := pod.GetName()
 	if podName == "" {
 		podName = pod.GetGenerateName()
 	}
+
+	// build namespace array, in effort to have better coverage.
+	config_namespaces := []string{namespace}
+	common_config_namespace, err := getCommonConfigmapNamespace()
+	if err != nil {
+		log.Errorf(err.Error())
+	} else {
+		config_namespaces = append(config_namespaces, common_config_namespace)
+	}
+
 	var patches []admission.PatchOperation
 	if configmapSidecarNames := patcher.configmapSidecarNames(namespace, pod); configmapSidecarNames != nil {
 		for _, configmapSidecarName := range configmapSidecarNames {
-			configmapSidecar, err := patcher.K8sClient.CoreV1().ConfigMaps(namespace).Get(ctx, configmapSidecarName, metav1.GetOptions{})
-			if k8serrors.IsNotFound(err) {
-				log.Warnf("sidecar configmap %s/%s was not found", namespace, configmapSidecarName)
-			} else if err != nil {
-				log.Errorf("error fetching sidecar configmap %s/%s - %v", namespace, configmapSidecarName, err)
-			} else if sidecarsStr, ok := configmapSidecar.Data[patcher.SidecarDataKey]; ok {
-				var sidecars []Sidecar
-				if err := yaml.Unmarshal([]byte(sidecarsStr), &sidecars); err != nil {
-					log.Errorf("error unmarshalling %s from configmap %s/%s", patcher.SidecarDataKey, pod.GetNamespace(), configmapSidecarName)
-				}
-				if sidecars != nil {
-					for _, sidecar := range sidecars {
-						patches = append(patches, createArrayPatches(sidecar.InitContainers, pod.Spec.InitContainers, "/spec/initContainers")...)
-						patches = append(patches, createArrayPatches(sidecar.Containers, pod.Spec.Containers, "/spec/containers")...)
-						patches = append(patches, createArrayPatches(sidecar.Volumes, pod.Spec.Volumes, "/spec/volumes")...)
-						patches = append(patches, createArrayPatches(sidecar.ImagePullSecrets, pod.Spec.ImagePullSecrets, "/spec/imagePullSecrets")...)
-						patches = append(patches, createObjectPatches(sidecar.Annotations, pod.Annotations, "/metadata/annotations", patcher.AllowAnnotationOverrides)...)
-						patches = append(patches, createObjectPatches(sidecar.Labels, pod.Labels, "/metadata/labels", patcher.AllowLabelOverrides)...)
+			// Look in both namespace when possible. First found always take precedence.
+			for _, ns := range config_namespaces {
+				configmapSidecar, err := patcher.K8sClient.CoreV1().ConfigMaps(ns).Get(ctx, configmapSidecarName, metav1.GetOptions{})
+				if k8serrors.IsNotFound(err) {
+					log.Warnf("sidecar configmap %s/%s was not found", ns, configmapSidecarName)
+					// configmap not found in namespace, continue to the next
+					continue
+				} else if err != nil {
+					log.Errorf("error fetching sidecar configmap %s/%s - %v", ns, configmapSidecarName, err)
+					// fetching error should break
+					break
+				} else if sidecarsStr, ok := configmapSidecar.Data[patcher.SidecarDataKey]; ok {
+					var sidecars []Sidecar
+					if err := yaml.Unmarshal([]byte(sidecarsStr), &sidecars); err != nil {
+						log.Errorf("error unmarshalling %s from configmap %s/%s", patcher.SidecarDataKey, pod.GetNamespace(), configmapSidecarName)
 					}
-					log.Debugf("sidecar patches being applied for %v/%v: patches: %v", namespace, podName, patches)
+					if sidecars != nil {
+						for _, sidecar := range sidecars {
+							patches = append(patches, createArrayPatches(sidecar.InitContainers, pod.Spec.InitContainers, "/spec/initContainers")...)
+							patches = append(patches, createArrayPatches(sidecar.Containers, pod.Spec.Containers, "/spec/containers")...)
+							patches = append(patches, createArrayPatches(sidecar.Volumes, pod.Spec.Volumes, "/spec/volumes")...)
+							patches = append(patches, createArrayPatches(sidecar.ImagePullSecrets, pod.Spec.ImagePullSecrets, "/spec/imagePullSecrets")...)
+							patches = append(patches, createObjectPatches(sidecar.Annotations, pod.Annotations, "/metadata/annotations", patcher.AllowAnnotationOverrides)...)
+							patches = append(patches, createObjectPatches(sidecar.Labels, pod.Labels, "/metadata/labels", patcher.AllowLabelOverrides)...)
+						}
+						log.Debugf("sidecar patches being applied for %v/%v: patches: %v", namespace, podName, patches)
+					}
+					// configmap has been found and processed. skip all other namespaces.
+					break
 				}
 			}
 		}
