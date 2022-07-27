@@ -42,6 +42,10 @@ data:
             name: # Example 3
       imagePullSecrets:
         - name: # Example 4
+      annotations:
+        my: annotation
+      labels:
+        my: label
 ```
 
 
@@ -64,7 +68,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: my-app-sidecar
-  namespace: {{ .Release.Namespace }}
+  namespace: <Namespace of application OR namespace of kube-sidecar-injector>
 data:
   sidecars.yaml: |
     - name: busybox
