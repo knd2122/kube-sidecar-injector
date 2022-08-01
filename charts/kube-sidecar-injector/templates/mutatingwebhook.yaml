@@ -116,6 +116,8 @@ spec:
             - name: https
               containerPort: {{ .Values.container.port }}
               protocol: TCP
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:
             httpGet:
               path: /healthz
