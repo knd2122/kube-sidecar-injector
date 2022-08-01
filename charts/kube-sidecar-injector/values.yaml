@@ -16,6 +16,14 @@ podAnnotations: {}
 podLabels: {}
 podSecurityContext: {}
 
+resources:
+  requests:
+    cpu: "500m"
+    memory: "512Mi"
+  limits:
+    cpu: "500m"
+    memory: "1024Mi"
+
 sidecars:
   dataKey: sidecars.yaml
 
